@@ -11,6 +11,7 @@ public class Snake {
     private Main main; // Instance of the main class
 
     private Direction direction = Direction.up; // Where will the snake move in the next move cycle?
+    private Direction lastDirection = Direction.up; // Where was the snake in the last move cycle?
     public ArrayList<Point> snakePoints;
     private long lastMoveTime = System.currentTimeMillis();
     private boolean dead = false;
@@ -70,17 +71,19 @@ public class Snake {
         if (snakeHas(newPoint))
             die();
 
+        lastDirection = direction;
+
         snakePoints.add(newPoint);
     }
 
     public void detectDirectionChange() {
-        if (Input.getKeyDown(KeyEvent.VK_UP) && (direction != Direction.down || snakePoints.size() == 1))
+        if (Input.getKeyDown(KeyEvent.VK_UP) && (lastDirection != Direction.down || snakePoints.size() == 1))
             direction = Direction.up;
-        else if (Input.getKeyDown(KeyEvent.VK_DOWN) && (direction != Direction.up || snakePoints.size() == 1))
+        else if (Input.getKeyDown(KeyEvent.VK_DOWN) && (lastDirection != Direction.up || snakePoints.size() == 1))
             direction = Direction.down;
-        else if (Input.getKeyDown(KeyEvent.VK_RIGHT) && (direction != Direction.right || snakePoints.size() == 1))
+        else if (Input.getKeyDown(KeyEvent.VK_RIGHT) && (lastDirection != Direction.left || snakePoints.size() == 1))
             direction = Direction.right;
-        else if (Input.getKeyDown(KeyEvent.VK_LEFT) && (direction != Direction.left || snakePoints.size() == 1))
+        else if (Input.getKeyDown(KeyEvent.VK_LEFT) && (lastDirection != Direction.right || snakePoints.size() == 1))
             direction = Direction.left;
     }
 

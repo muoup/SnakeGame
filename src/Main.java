@@ -17,8 +17,6 @@ public class Main extends Canvas implements Runnable {
     private static final Dimension frameSize = new Dimension(Settings.TILE_SIZE * Settings.GRID_SIZE, Settings.TILE_SIZE * Settings.GRID_SIZE);
     private static Random random = new Random(System.nanoTime());
 
-    private ArrayList<Point> snakePoints = new ArrayList<>();
-
     private Point fruitPoint;
 
     private Snake snake;
@@ -40,7 +38,7 @@ public class Main extends Canvas implements Runnable {
         Main main = new Main();
 
         frame.setVisible(true);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         frame.add(main);
         frame.pack();
         frame.setLocationRelativeTo(null);
@@ -152,7 +150,7 @@ public class Main extends Canvas implements Runnable {
     }
 
     public void readData() {
-        if (saveFile.isFile()) {
+        if (!saveFile.isFile()) {
             saveData();
 
             for (int i = 0; i < 5; i++) {
@@ -172,8 +170,8 @@ public class Main extends Canvas implements Runnable {
                 String line = scanner.nextLine();
                 String[] data = line.split(" ");
 
-                scores[index] = Integer.parseInt(data[0]);
-                names[index] = data[1];
+                names[index] = data[0];
+                scores[index] = Integer.parseInt(data[1]);
 
                 index++;
             }
@@ -213,12 +211,22 @@ public class Main extends Canvas implements Runnable {
         String name = "";
 
         do {
-            if (name.length() > 8) {
-                JOptionPane.showMessageDialog(null, "Name is too long! Please keep it under 8 characters.");
-            }
             name = JOptionPane.showInputDialog(null, "New High Score!\nEnter your name:", "Score", JOptionPane.PLAIN_MESSAGE);
 
-        } while (name.contains("N/A") || name.length() > 8);
+            if (name == null) {
+                JOptionPane.showMessageDialog(null, "Please enter a name!");
+            } else {
+                if (name.length() > 8) {
+                    JOptionPane.showMessageDialog(null, "Name is too long! Please keep it under 8 characters.");
+                }
+                if (name.contains(" ")) {
+                    JOptionPane.showMessageDialog(null, "Please do not enter any spaces into your name!");
+                }
+                if (name.trim().equals("")) {
+                    JOptionPane.showMessageDialog(null, "Please enter a name!");
+                }
+            }
+        } while (name == null || name.contains("N/A") || name.contains(" ") || name.length() > 8 || name.trim().equals(""));
 
         for (int i = 0; i < scores.length; i++) {
             if (score > scores[i]) {
