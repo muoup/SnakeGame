@@ -1,38 +1,35 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.KeyEvent;
 import java.awt.image.BufferStrategy;
+import java.io.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
+import java.util.Scanner;
 
 
 public class Main extends Canvas implements Runnable {
-    enum Direction {
-        up, down, left, right
+    enum GameState {
+        MENU,
+        GAME,
+        END
     }
 
-    private static int[][] grid = {
-            {
-                -1, -1, -1, -1
-            },
-            {
-                -1, -1, -1, -1
-            }
-    };
-
-    private static final Dimension frameSize = new Dimension(768, 768);
+    private static final Dimension frameSize = new Dimension(Settings.TILE_SIZE * Settings.GRID_SIZE, Settings.TILE_SIZE * Settings.GRID_SIZE);
     private static Random random = new Random(System.nanoTime());
 
     private ArrayList<Point> snakePoints = new ArrayList<>();
 
-    private Direction direction = Direction.up;
-
-    private long lastMoveTime = System.currentTimeMillis();
-
     private Point fruitPoint;
 
-    private boolean dead = false;
+    private Snake snake;
+    private Menu menu;
+
+    private GameState gameState = GameState.MENU;
+
+    private File saveFile;
+
+    private int[] scores = new int[5];
+    private String[] names = new String[5];
 
     public Main() {
         setPreferredSize(frameSize);
@@ -56,61 +53,33 @@ public class Main extends Canvas implements Runnable {
     }
 
     public void run() {
-        snakePoints.add(new Point(5, 5));
+        saveFile = new File("src/data/save.txt");
+
+        readData();
+
+        snake = new Snake(this);
+        menu = new Menu(this);
+
+        snake.reset();
+
         generateFruitPoint();
 
-        while (!dead) {
-            update();
+        while (!snake.isDead()) {
             render();
+            update();
         }
     }
 
     public void update() {
-        if (Input.getKeyDown(KeyEvent.VK_UP) && direction != Direction.down)
-            direction = Direction.up;
-        else if (Input.getKeyDown(KeyEvent.VK_DOWN) && direction != Direction.up)
-            direction = Direction.down;
-        else if (Input.getKeyDown(KeyEvent.VK_RIGHT) && direction != Direction.right)
-            direction = Direction.right;
-        else if (Input.getKeyDown(KeyEvent.VK_LEFT) && direction != Direction.left)
-            direction = Direction.left;
-
-        if (System.currentTimeMillis() - lastMoveTime < 125 + 375 / Math.sqrt(snakePoints.size()))
-            return;
-
-        lastMoveTime = System.currentTimeMillis();
-
-        Point newPoint = (Point) snakePoints.get(snakePoints.size() - 1).clone();
-
-        switch (direction) {
-            case up:
-                newPoint.y = (newPoint.y - 1) % 16;
+        switch (gameState) {
+            case END:
+            case MENU:
+                menu.update();
                 break;
-            case down:
-                newPoint.y = (newPoint.y + 1) % 16;
-                break;
-            case left:
-                newPoint.x = (newPoint.x - 1) % 16;
-                break;
-            case right:
-                newPoint.x = (newPoint.x + 1) % 16;
+            case GAME:
+                snake.update();
                 break;
         }
-
-        if (newPoint.x < 0)
-            newPoint.x += 16;
-        if (newPoint.y < 0)
-            newPoint.y += 16;
-
-        if (newPoint.x == fruitPoint.x && newPoint.y == fruitPoint.y) {
-            generateFruitPoint();
-        }
-        else snakePoints.remove(0);
-
-        if (snakeHas(newPoint))
-            dead = true;
-
-        snakePoints.add(newPoint);
     }
 
     public void render() {
@@ -129,44 +98,141 @@ public class Main extends Canvas implements Runnable {
 
         // Render Grid
         g.setColor(Color.BLACK);
-        for (int x = 0; x < 16; x++) {
-            for (int y = 0; y < 16; y++) {
-                g.drawRect(x * 48, y * 48, 48, 48);
+        for (int x = 0; x < Settings.GRID_SIZE; x++) {
+            for (int y = 0; y < Settings.GRID_SIZE; y++) {
+                g.drawRect(x * Settings.TILE_SIZE, y * Settings.TILE_SIZE,
+                        Settings.TILE_SIZE, Settings.TILE_SIZE);
             }
         }
 
-        g.setColor(Color.GREEN);
-        snakeRender(g);
+        renderTile(g, Color.RED, fruitPoint);
 
-        g.setColor(Color.RED);
-        g.fillRect(48 * fruitPoint.x + 1, 48 * fruitPoint.y + 1, 47, 47);
+        switch (gameState) {
+            case END:
+            case MENU:
+                menu.render(g);
+                break;
+            case GAME:
+                snake.render(g);
+                break;
+        }
 
         bs.show();
         g.dispose();
     }
 
-    private void snakeRender(Graphics g) {
-        for (Point p : snakePoints) {
-            g.fillRect(48 * p.x + 1, 48 * p.y + 1, 47, 47);
-        }
+    public void renderTile(Graphics g, Color color, Point point) {
+        g.setColor(color);
+        g.fillRect(Settings.TILE_SIZE * point.x + 1, Settings.TILE_SIZE * point.y + 1, 47, 47);
     }
 
-    private void generateFruitPoint() {
+    public void generateFruitPoint() {
         do {
-            fruitPoint = new Point(random.nextInt(16), random.nextInt(16));
-        } while (snakePoints.contains(fruitPoint));
+            fruitPoint = new Point(random.nextInt(Settings.GRID_SIZE), random.nextInt(Settings.GRID_SIZE));
+        } while (snake.snakeHas(fruitPoint));
     }
 
-    private boolean snakeHas(Point p) {
-        for (Point point : snakePoints) {
-            if (p.x == point.x && point.y == p.y)
-                return true;
+    public void startGame() {
+        gameState = GameState.GAME;
+
+        snake.reset();
+    }
+
+    public void quit() {
+        saveData();
+        System.exit(0);
+    }
+
+    public void goToMenu() {
+        gameState = GameState.MENU;
+    }
+
+    public boolean isFruitAt(Point newPoint) {
+        return newPoint.equals(fruitPoint);
+    }
+
+    public void readData() {
+        if (saveFile.isFile()) {
+            saveData();
+
+            for (int i = 0; i < 5; i++) {
+                names[i] = "N/A";
+            }
+        } else {
+            Scanner scanner = null;
+
+            try {
+                scanner = new Scanner(saveFile);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+
+            int index = 0;
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                String[] data = line.split(" ");
+
+                scores[index] = Integer.parseInt(data[0]);
+                names[index] = data[1];
+
+                index++;
+            }
+        }
+    }
+
+    public void saveData() {
+        try {
+            PrintWriter writer = new PrintWriter(saveFile);
+            for (int i = 0; i < scores.length; i++) {
+                String name = names[i];
+
+                if (name == null) {
+                    name = "N/A";
+                }
+
+                writer.println(name + " " + scores[i]);
+            }
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public int[] getScores() {
+        return scores;
+    }
+
+    public String[] getNames() {
+        return names;
+    }
+
+    public void submitScore(int score) {
+        if (score < scores[4])
+            return;
+
+        String name = "";
+
+        do {
+            if (name.length() > 8) {
+                JOptionPane.showMessageDialog(null, "Name is too long! Please keep it under 8 characters.");
+            }
+            name = JOptionPane.showInputDialog(null, "New High Score!\nEnter your name:", "Score", JOptionPane.PLAIN_MESSAGE);
+
+        } while (name.contains("N/A") || name.length() > 8);
+
+        for (int i = 0; i < scores.length; i++) {
+            if (score > scores[i]) {
+                for (int j = scores.length - 1; j > i; j--) {
+                    scores[j] = scores[j - 1];
+                    names[j] = names[j - 1];
+                }
+                scores[i] = score;
+                names[i] = name;
+
+                return;
+            }
         }
 
-        return false;
-    }
-
-    private boolean equals(Point p1, Point p2) {
-        return p1.x == p2.x && p1.y == p2.y;
+        saveData();
     }
 }

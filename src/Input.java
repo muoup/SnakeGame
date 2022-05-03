@@ -1,26 +1,43 @@
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.util.HashSet;
 
 public class Input implements KeyListener {
+    enum KeyState {
+        RELEASED, PRESSED, HELD
+    }
 
-    public static HashSet<Integer> keysDown = new HashSet<>();
+    private static KeyState[] keys = new KeyState[65536];
+
+    public static boolean getKey(int keyCode) {
+        if (keys[keyCode] == KeyState.PRESSED || keys[keyCode] == KeyState.HELD) {
+            keys[keyCode] = KeyState.HELD;
+            return true;
+        }
+
+        return false;
+    }
 
     public static boolean getKeyDown(int keyCode) {
-        return keysDown.contains(keyCode);
+        if (keys[keyCode] == KeyState.PRESSED) {
+            keys[keyCode] = KeyState.HELD;
+            return true;
+        }
+
+        return false;
     }
 
     @Override
     public void keyTyped(KeyEvent e) {
+
     }
 
     @Override
     public void keyPressed(KeyEvent e) {
-        keysDown.add(e.getKeyCode());
+        keys[e.getKeyCode()] = KeyState.PRESSED;
     }
 
     @Override
     public void keyReleased(KeyEvent e) {
-        keysDown.remove(e.getKeyCode());
+        keys[e.getKeyCode()] = KeyState.RELEASED;
     }
 }
